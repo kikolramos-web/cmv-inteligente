@@ -6,29 +6,47 @@ st.set_page_config(page_title="CMV Inteligente", layout="centered")
 st.title("📊 CMV Inteligente")
 
 # =============================
-# CARREGAR BASE DE PREÇOS
+# CARREGAR BASE DE PREÇOS (RESISTENTE)
 # =============================
 try:
-    df = pd.read_csv("precos.csv")
+    try:
+        df = pd.read_csv("precos.csv", sep=";")
+    except:
+        df = pd.read_csv("precos.csv")
+
+    # padroniza nomes das colunas
+    df.columns = df.columns.str.strip().str.lower()
+
 except:
     st.error("Erro ao carregar o arquivo precos.csv")
     st.stop()
 
 # =============================
+# VALIDAR COLUNAS OBRIGATÓRIAS
+# =============================
+colunas_necessarias = ["produto", "preco", "unidade", "estado"]
+
+for col in colunas_necessarias:
+    if col not in df.columns:
+        st.error(f"Coluna obrigatória não encontrada: {col}")
+        st.write("Colunas encontradas:", df.columns)
+        st.stop()
+
+# =============================
 # FILTRO POR ESTADO
 # =============================
-estado = st.selectbox("Selecione o Estado", df["estado"].unique())
+estado = st.selectbox("Selecione o Estado", sorted(df["estado"].dropna().unique()))
 
 df_estado = df[df["estado"] == estado]
 
 # =============================
 # FILTRO POR PRODUTO
 # =============================
-produto = st.selectbox("Selecione o Produto", df_estado["produto"].unique())
+produto = st.selectbox("Selecione o Produto", sorted(df_estado["produto"].dropna().unique()))
 
 dados_produto = df_estado[df_estado["produto"] == produto].iloc[0]
 
-preco = dados_produto["preco"]
+preco = float(dados_produto["preco"])
 unidade = dados_produto["unidade"]
 
 # =============================
