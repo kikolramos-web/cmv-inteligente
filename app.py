@@ -6,23 +6,29 @@ st.set_page_config(page_title="CMV Inteligente", layout="centered")
 st.title("📊 CMV Inteligente")
 
 # =============================
-# CARREGAR BASE DE PREÇOS (RESISTENTE)
+# CARREGAR BASE DE PREÇOS (SUPER ROBUSTO)
 # =============================
 try:
-    try:
-        df = pd.read_csv("precos.csv", sep=";")
-    except:
-        df = pd.read_csv("precos.csv")
+    df = pd.read_csv("precos.csv", sep=None, engine="python")
 
-    # padroniza nomes das colunas
+    # se veio tudo em uma coluna só, separa manualmente
+    if len(df.columns) == 1:
+        df = df[df.columns[0]].str.split(",", expand=True)
+        df.columns = [
+            "produto","categoria","preco","unidade",
+            "estado","cidade","fornecedor","data"
+        ]
+
+    # padroniza nomes
     df.columns = df.columns.str.strip().str.lower()
 
-except:
+except Exception as e:
     st.error("Erro ao carregar o arquivo precos.csv")
+    st.write(e)
     st.stop()
 
 # =============================
-# VALIDAR COLUNAS OBRIGATÓRIAS
+# VALIDAR COLUNAS
 # =============================
 colunas_necessarias = ["produto", "preco", "unidade", "estado"]
 
@@ -33,20 +39,28 @@ for col in colunas_necessarias:
         st.stop()
 
 # =============================
+# LIMPAR DADOS
+# =============================
+df = df.dropna(subset=["produto", "preco", "estado"])
+
+# garantir tipos corretos
+df["preco"] = df["preco"].astype(float)
+
+# =============================
 # FILTRO POR ESTADO
 # =============================
-estado = st.selectbox("Selecione o Estado", sorted(df["estado"].dropna().unique()))
+estado = st.selectbox("Selecione o Estado", sorted(df["estado"].unique()))
 
 df_estado = df[df["estado"] == estado]
 
 # =============================
 # FILTRO POR PRODUTO
 # =============================
-produto = st.selectbox("Selecione o Produto", sorted(df_estado["produto"].dropna().unique()))
+produto = st.selectbox("Selecione o Produto", sorted(df_estado["produto"].unique()))
 
 dados_produto = df_estado[df_estado["produto"] == produto].iloc[0]
 
-preco = float(dados_produto["preco"])
+preco = dados_produto["preco"]
 unidade = dados_produto["unidade"]
 
 # =============================
@@ -61,7 +75,7 @@ quantidade = st.number_input(
 )
 
 # =============================
-# CÁLCULO DO CUSTO
+# CÁLCULO
 # =============================
 custo = preco * quantidade
 
@@ -73,7 +87,7 @@ st.write(f"**Quantidade:** {quantidade} {unidade}")
 st.write(f"**Custo total:** R$ {custo:.2f}")
 
 # =============================
-# MOSTRAR BASE (OPCIONAL)
+# BASE DE DADOS
 # =============================
 with st.expander("📋 Ver base de preços"):
     st.dataframe(df_estado)
