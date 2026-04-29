@@ -16,9 +16,9 @@ except:
     st.stop()
 
 # =============================
-# FILTRO POR ESTADO
+# FILTRO
 # =============================
-estado = st.selectbox("Selecione o Estado", sorted(df["estado"].unique()))
+estado = st.selectbox("📍 Estado", sorted(df["estado"].unique()))
 df_estado = df[df["estado"] == estado]
 
 # =============================
@@ -27,60 +27,61 @@ df_estado = df[df["estado"] == estado]
 st.subheader("🧾 Montagem do Prato")
 
 ingredientes = df_estado["produto"].unique()
-
 itens = []
 
 num_itens = st.number_input("Quantidade de ingredientes", min_value=1, max_value=10, value=1)
 
 for i in range(num_itens):
-    st.markdown(f"### Ingrediente {i+1}")
-
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         produto = st.selectbox(f"Produto {i+1}", ingredientes, key=f"prod_{i}")
 
-    with col2:
-        quantidade = st.number_input(f"Qtd ({produto})", min_value=0.0, step=0.1, key=f"qtd_{i}")
-
     preco = df_estado[df_estado["produto"] == produto]["preco"].values[0]
     unidade = df_estado[df_estado["produto"] == produto]["unidade"].values[0]
 
+    with col2:
+        quantidade = st.number_input(f"Qtd ({unidade})", min_value=0.0, step=0.1, key=f"qtd_{i}")
+
     custo = preco * quantidade
 
-    itens.append({
-        "produto": produto,
-        "quantidade": quantidade,
-        "unidade": unidade,
-        "preco": preco,
-        "custo": custo
-    })
+    with col3:
+        st.metric("Custo", f"R$ {custo:.2f}")
+
+    itens.append(custo)
 
 # =============================
-# CÁLCULO TOTAL
+# RESULTADO
 # =============================
+total = sum(itens)
+
+st.markdown("---")
 st.markdown("## 💰 Resultado do Prato")
 
-total = sum(item["custo"] for item in itens)
-
-for item in itens:
-    st.write(f"{item['produto']} → {item['quantidade']} {item['unidade']} = R$ {item['custo']:.2f}")
-
-st.markdown(f"### 🔹 Custo total do prato: R$ {total:.2f}")
+st.metric("Custo Total", f"R$ {total:.2f}")
 
 # =============================
-# MARGEM E PREÇO DE VENDA
+# MARGEM
 # =============================
-st.subheader("📈 Definir Margem")
+st.subheader("📈 Margem de Lucro")
 
-margem = st.slider("Margem de lucro (%)", 0, 100, 70)
+margem = st.slider("Margem (%)", 0, 100, 70)
 
-preco_venda = total / (1 - margem/100) if margem < 100 else 0
+if total > 0 and margem < 100:
+    preco_venda = total / (1 - margem/100)
+else:
+    preco_venda = 0
 
-st.markdown(f"### 💵 Preço sugerido de venda: R$ {preco_venda:.2f}")
+st.metric("💵 Preço sugerido", f"R$ {preco_venda:.2f}")
 
 # =============================
-# BASE DE DADOS
+# ALERTA INTELIGENTE
+# =============================
+if total == 0:
+    st.warning("⚠️ Informe a quantidade dos ingredientes para calcular o custo.")
+
+# =============================
+# BASE
 # =============================
 with st.expander("📋 Ver base de preços"):
     st.dataframe(df_estado)
