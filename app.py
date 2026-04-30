@@ -13,11 +13,15 @@ def formatar_real(valor):
 def carregar_base_precos():
     return pd.read_csv("base_precos.csv")
 
+@st.cache_data
+def carregar_produtos():
+    return pd.read_csv("produtos_base.csv")["produto"].tolist()
+
 def buscar_preco(produto, estado, df_precos):
     filtro = (
-        (df_precos["produto"].str.lower() == produto.lower()) &
-        (df_precos["estado"] == estado)
-    )
+        df_precos["produto"].str.lower().str.contains(produto.lower())
+    ) & (df_precos["estado"] == estado)
+
     resultado = df_precos[filtro]
 
     if not resultado.empty:
@@ -26,7 +30,7 @@ def buscar_preco(produto, estado, df_precos):
         return None
 
 # =========================
-# LISTA DE ESTADOS
+# ESTADOS
 # =========================
 estados = [
     "AC","AL","AP","AM","BA","CE","DF","ES","GO",
@@ -37,6 +41,7 @@ estados = [
 st.title("🍽️ CMV Inteligente PRO")
 
 df_precos = carregar_base_precos()
+produtos_base = carregar_produtos()
 
 # =========================
 # MENU
@@ -66,7 +71,11 @@ if opcao == "Manual":
     for i in range(int(num_ingredientes)):
         st.subheader(f"Ingrediente {i+1}")
 
-        nome = st.text_input(f"Produto {i+1}", key=f"nome_{i}")
+        nome = st.selectbox(
+            f"Produto {i+1}",
+            options=[""] + produtos_base,
+            key=f"nome_{i}"
+        )
 
         quantidade = st.number_input(
             f"Quantidade {i+1}",
@@ -84,7 +93,7 @@ if opcao == "Manual":
             preco = preco_auto
         else:
             preco = st.number_input(
-                f"Preço unitário {i+1} (R$)",
+                f"Preço unitário {i+1}",
                 min_value=0.0,
                 step=0.01,
                 key=f"preco_{i}"
@@ -149,12 +158,20 @@ elif opcao == "Cadastrar produto":
     preco = st.number_input("Preço", min_value=0.0)
 
     if st.button("Salvar"):
-        novo = pd.DataFrame([{
+        # salvar preço
+        novo_preco = pd.DataFrame([{
             "produto": produto,
             "estado": estado,
             "preco": preco
         }])
 
-        novo.to_csv("base_precos.csv", mode="a", header=False, index=False)
+        novo_preco.to_csv("base_precos.csv", mode="a", header=False, index=False)
 
-        st.success("Produto salvo!")
+        # salvar produto base (sem duplicar)
+        produtos_existentes = pd.read_csv("produtos_base.csv")["produto"].str.lower().tolist()
+
+        if produto.lower() not in produtos_existentes:
+            novo_produto = pd.DataFrame([{"produto": produto}])
+            novo_produto.to_csv("produtos_base.csv", mode="a", header=False, index=False)
+
+        st.success("Produto salvo com sucesso!")
