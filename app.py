@@ -1,5 +1,58 @@
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
+
 # =========================
-# MODO MANUAL (ATUALIZADO)
+# FUNÇÕES
+# =========================
+def formatar_real(valor):
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+@st.cache_data
+def carregar_base_precos():
+    return pd.read_csv("base_precos.csv")
+
+@st.cache_data
+def carregar_produtos():
+    return pd.read_csv("produtos_base.csv")["produto"].tolist()
+
+def buscar_preco(produto, estado, df_precos):
+    filtro = (
+        df_precos["produto"].str.lower().str.contains(produto.lower())
+    ) & (df_precos["estado"] == estado)
+
+    resultado = df_precos[filtro]
+
+    if not resultado.empty:
+        return float(resultado.iloc[0]["preco"])
+    else:
+        return None
+
+# =========================
+# DADOS INICIAIS
+# =========================
+estados = [
+    "AC","AL","AP","AM","BA","CE","DF","ES","GO",
+    "MA","MT","MS","MG","PA","PB","PR","PE","PI",
+    "RJ","RN","RS","RO","RR","SC","SP","SE","TO"
+]
+
+st.title("🍽️ CMV Inteligente PRO")
+
+df_precos = carregar_base_precos()
+produtos_base = carregar_produtos()
+
+# =========================
+# MENU (AGORA CORRETO)
+# =========================
+opcao = st.radio(
+    "Escolha o modo:",
+    ["Manual", "Importar planilha", "Cadastrar produto"]
+)
+
+# =========================
+# MODO MANUAL
 # =========================
 if opcao == "Manual":
     st.header("🧾 Montagem do Prato")
@@ -14,7 +67,6 @@ if opcao == "Manual":
     )
 
     ingredientes = []
-
     unidades = ["kg", "g", "L", "ml", "un"]
 
     for i in range(int(num_ingredientes)):
@@ -39,12 +91,8 @@ if opcao == "Manual":
             key=f"qtd_{i}"
         )
 
-        # =========================
-        # CONVERSÃO
-        # =========================
-        if unidade == "g":
-            quantidade_convertida = quantidade / 1000
-        elif unidade == "ml":
+        # Conversão
+        if unidade == "g" or unidade == "ml":
             quantidade_convertida = quantidade / 1000
         else:
             quantidade_convertida = quantidade
@@ -53,9 +101,6 @@ if opcao == "Manual":
         if nome:
             preco_auto = buscar_preco(nome, estado, df_precos)
 
-        # =========================
-        # PREÇO COM R$
-        # =========================
         if preco_auto:
             st.success(f"💰 Preço automático: {formatar_real(preco_auto)}")
             preco = preco_auto
@@ -66,7 +111,7 @@ if opcao == "Manual":
                 step=0.01,
                 key=f"preco_{i}"
             )
-            st.caption(f"Valor informado: {formatar_real(preco)}")
+            st.caption(f"Valor: {formatar_real(preco)}")
 
         if nome:
             ingredientes.append({
@@ -88,7 +133,7 @@ if opcao == "Manual":
 
             st.success(f"💰 Custo total: {formatar_real(custo_total)}")
 
-            # PORÇÃO
+            # Porções
             porcoes = st.number_input("Número de porções", min_value=1, value=1)
             custo_por_porcao = custo_total / porcoes
 
@@ -102,7 +147,7 @@ if opcao == "Manual":
 
             st.info(f"💡 Preço de venda: {formatar_real(preco_venda)}")
 
-            # INDICADOR
+            # Indicador
             if cmv <= 0.30:
                 st.success("🟢 CMV saudável")
             elif cmv <= 0.50:
@@ -112,3 +157,51 @@ if opcao == "Manual":
 
         else:
             st.warning("Adicione ingredientes.")
+
+# =========================
+# IMPORTAR PLANILHA
+# =========================
+elif opcao == "Importar planilha":
+    st.header("📥 Importar Ficha Técnica")
+
+    uploaded_file = st.file_uploader("Envie Excel", type=["xlsx"])
+
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file)
+
+        if all(col in df.columns for col in ["produto","quantidade","unidade","preco_unitario"]):
+            df["custo"] = df["quantidade"] * df["preco_unitario"]
+            custo_total = df["custo"].sum()
+
+            st.dataframe(df)
+            st.success(f"Custo total: {formatar_real(custo_total)}")
+
+        else:
+            st.error("Formato inválido.")
+
+# =========================
+# CADASTRAR PRODUTO
+# =========================
+elif opcao == "Cadastrar produto":
+    st.header("➕ Novo Produto")
+
+    produto = st.text_input("Nome do produto")
+    estado = st.selectbox("Estado", estados)
+    preco = st.number_input("Preço (R$)", min_value=0.0)
+
+    if st.button("Salvar"):
+        novo_preco = pd.DataFrame([{
+            "produto": produto,
+            "estado": estado,
+            "preco": preco
+        }])
+
+        novo_preco.to_csv("base_precos.csv", mode="a", header=False, index=False)
+
+        produtos_existentes = pd.read_csv("produtos_base.csv")["produto"].str.lower().tolist()
+
+        if produto.lower() not in produtos_existentes:
+            novo_produto = pd.DataFrame([{"produto": produto}])
+            novo_produto.to_csv("produtos_base.csv", mode="a", header=False, index=False)
+
+        st.success("Produto salvo com sucesso!")
