@@ -1,11 +1,11 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import sqlite3
 
 st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
 
 st.title("🍽️ CMV Inteligente PRO")
-st.write("🔥 VERSÃO BASE VIVA 3.0 🔥")
+st.write("🔥 VERSÃO BASE VIVA 4.0 🔥")
 
 # -------------------------------
 # BANCO DE DADOS
@@ -48,8 +48,7 @@ if cursor.fetchone()[0] == 0:
 # FUNÇÕES
 # -------------------------------
 def carregar_base():
-    df = pd.read_sql("SELECT * FROM precos", conn)
-    return df
+    return pd.read_sql("SELECT * FROM precos", conn)
 
 def salvar(produto, estado, preco):
     cursor.execute(
@@ -128,10 +127,7 @@ else:
             (base["estado"] == estado)
         ]["preco"]
 
-        if not preco.empty:
-            custo = float(preco.values[0])
-        else:
-            custo = 0.0
+        custo = float(preco.values[0]) if not preco.empty else 0.0
 
         st.write(f"💰 Custo unitário: R$ {custo:.2f}")
 
@@ -154,7 +150,9 @@ else:
 
         st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
 
-        # IA simples
+        # -------------------------------
+        # IA DE PREÇO
+        # -------------------------------
         st.subheader("🤖 Inteligência de Preço")
 
         margem = st.slider("Margem (%)", 10, 90, 30) / 100
@@ -172,3 +170,39 @@ else:
                 st.info("💡 Margem alta")
             else:
                 st.success("✅ Margem saudável")
+
+        # -------------------------------
+        # 🧠 ANÁLISE INTELIGENTE
+        # -------------------------------
+        st.subheader("🧠 Análise Inteligente do Prato")
+
+        df["Peso (%)"] = (df["Custo Total"] / custo_total) * 100
+
+        item_caro = df.loc[df["Custo Total"].idxmax()]
+
+        st.warning(
+            f"🔎 Item que mais impacta o custo: {item_caro['Produto']} "
+            f"(R$ {item_caro['Custo Total']:.2f})"
+        )
+
+        st.subheader("📊 Participação no custo (%)")
+        st.dataframe(df[["Produto", "Peso (%)"]])
+
+        impacto = item_caro["Custo Total"] / custo_total
+
+        if impacto > 0.5:
+            st.error("🚨 Um único item domina o custo do prato")
+        elif impacto > 0.3:
+            st.warning("⚠️ Alto impacto de um item no custo")
+        else:
+            st.success("✅ Custo bem distribuído")
+
+        st.subheader("💡 Sugestão Inteligente")
+
+        if impacto > 0.4:
+            st.info(
+                f"Considere reduzir o custo de '{item_caro['Produto']}' "
+                f"ou buscar fornecedor mais barato."
+            )
+        else:
+            st.info("Distribuição equilibrada — bom controle de custo.")
