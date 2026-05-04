@@ -1,91 +1,103 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 
-st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
+st.set_page_config(page_title="CMV Inteligente", layout="centered")
 
 st.title("🍽️ CMV Inteligente PRO")
 
-arquivo = st.file_uploader("📂 Envie sua ficha técnica (.xlsx)", type=["xlsx"])
+# -------------------------------
+# RESET
+# -------------------------------
+if st.button("🔄 Resetar aplicação"):
+    st.session_state.clear()
+    st.rerun()
 
-if arquivo:
+# -------------------------------
+# SELETOR DE MODO (ESSENCIAL)
+# -------------------------------
+modo = st.radio(
+    "Escolha o modo de entrada:",
+    ["Manual", "Planilha"]
+)
 
-    try:
-        file_bytes = BytesIO(arquivo.read())
-        df = pd.read_excel(file_bytes, engine="openpyxl")
+st.divider()
 
-        # ==============================
-        # Normalizar colunas
-        # ==============================
-        df.columns = df.columns.str.strip().str.lower()
+# -------------------------------
+# MODO MANUAL
+# -------------------------------
+if modo == "Manual":
 
-        colunas_esperadas = {'prato', 'ingrediente', 'quantidade', 'unidade', 'custo_unitario'}
-        faltando = colunas_esperadas - set(df.columns)
+    st.subheader("🧾 Montagem do Prato")
 
-        if faltando:
-            st.error(f"❌ Faltando colunas: {faltando}")
-            st.stop()
+    qtd = st.number_input("Quantidade de ingredientes", min_value=1, step=1)
 
-        # ==============================
-        # Garantir números
-        # ==============================
-        df['quantidade'] = pd.to_numeric(df['quantidade'], errors='coerce')
-        df['custo_unitario'] = pd.to_numeric(df['custo_unitario'], errors='coerce')
+    ingredientes = []
 
-        if df[['quantidade', 'custo_unitario']].isnull().any().any():
-            st.error("❌ Valores inválidos em quantidade ou custo_unitario")
-            st.stop()
+    for i in range(int(qtd)):
+        st.markdown(f"### Ingrediente {i+1}")
 
-        # ==============================
-        # Cálculo
-        # ==============================
-        df['custo_total'] = df['quantidade'] * df['custo_unitario']
+        nome = st.text_input(f"Nome {i}", key=f"nome_{i}")
+        quantidade = st.number_input(f"Quantidade (kg/un) {i}", key=f"qtd_{i}")
+        custo = st.number_input(f"Custo unitário (R$) {i}", key=f"custo_{i}")
 
-        resumo = df.groupby('prato')['custo_total'].sum().reset_index()
-        resumo = resumo.rename(columns={'custo_total': 'cmv_prato'})
+        if nome:
+            total = quantidade * custo
+            ingredientes.append({
+                "Ingrediente": nome,
+                "Quantidade": quantidade,
+                "Custo Unitário": custo,
+                "Custo Total": total
+            })
 
-        # ==============================
-        # INPUT DE PREÇO
-        # ==============================
-        st.subheader("💰 Definir preço de venda")
+    if ingredientes:
+        df = pd.DataFrame(ingredientes)
 
-        preco_venda = st.number_input(
-            "Preço de venda por prato (R$)",
-            min_value=0.0,
-            step=1.0
-        )
-
-        if preco_venda > 0:
-            resumo['margem_%'] = ((preco_venda - resumo['cmv_prato']) / preco_venda) * 100
-
-            def classificar(m):
-                if m < 60:
-                    return "🔴 Baixa"
-                elif m < 70:
-                    return "🟡 Média"
-                else:
-                    return "🟢 Ideal"
-
-            resumo['status'] = resumo['margem_%'].apply(classificar)
-
-        # ==============================
-        # FORMATAR EM R$
-        # ==============================
-        df['custo_unitario'] = df['custo_unitario'].apply(lambda x: f"R$ {x:,.2f}")
-        df['custo_total'] = df['custo_total'].apply(lambda x: f"R$ {x:,.2f}")
-
-        resumo['cmv_prato'] = resumo['cmv_prato'].apply(lambda x: f"R$ {x:,.2f}")
-
-        # ==============================
-        # EXIBIÇÃO
-        # ==============================
-        st.success("✅ Planilha carregada com sucesso!")
-
-        st.subheader("📊 Dados importados")
+        st.subheader("📊 Resultado")
         st.dataframe(df)
 
-        st.subheader("💰 CMV por prato")
-        st.dataframe(resumo)
+        custo_total = df["Custo Total"].sum()
+        custo_unitario = custo_total / len(df)
 
-    except Exception as e:
-        st.error(f"❌ Erro ao processar: {e}")
+        st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
+        st.info(f"📌 Custo Médio por Ingrediente: R$ {custo_unitario:.2f}")
+
+# -------------------------------
+# MODO PLANILHA
+# -------------------------------
+else:
+
+    st.subheader("📂 Upload da Planilha")
+
+    arquivo = st.file_uploader(
+        "Envie sua planilha (.xlsx)",
+        type=["xlsx"]
+    )
+
+    if arquivo is not None:
+
+        df = pd.read_excel(arquivo)
+
+        st.subheader("📊 Dados carregados")
+        st.dataframe(df)
+
+        # Validação básica
+        colunas_esperadas = ["Ingrediente", "Quantidade", "Custo Unitário"]
+
+        if all(col in df.columns for col in colunas_esperadas):
+
+            df["Custo Total"] = df["Quantidade"] * df["Custo Unitário"]
+
+            st.subheader("📊 Resultado")
+            st.dataframe(df)
+
+            custo_total = df["Custo Total"].sum()
+            custo_unitario = custo_total / len(df)
+
+            st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
+            st.info(f"📌 Custo Médio por Ingrediente: R$ {custo_unitario:.2f}")
+
+        else:
+            st.error("❌ A planilha precisa ter as colunas: Ingrediente, Quantidade, Custo Unitário")
+
+    else:
+        st.warning("📎 Envie uma planilha para continuar")
