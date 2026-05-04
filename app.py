@@ -6,17 +6,15 @@ st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
 st.title("🍽️ CMV Inteligente PRO")
 
 # -------------------------------
-# CARREGAR BASE DE PREÇOS
+# CARREGAR BASE
 # -------------------------------
 @st.cache_data
 def carregar_base():
-    return pd.read_csv("base_precos.csv")
+    df = pd.read_csv("base_precos.csv")
+    df.columns = df.columns.str.strip().str.lower()
+    return df
 
-try:
-    base_precos = carregar_base()
-except:
-    st.error("❌ Arquivo base_precos.csv não encontrado. Verifique se está na pasta do projeto.")
-    st.stop()
+base_precos = carregar_base()
 
 # -------------------------------
 # RESET
@@ -26,18 +24,18 @@ if st.button("🔄 Resetar aplicação"):
     st.rerun()
 
 # -------------------------------
-# SELETOR DE ESTADO (SEMPRE VISÍVEL)
+# ESTADO (AGORA FUNCIONA)
 # -------------------------------
 estado = st.selectbox(
     "📍 Selecione o Estado",
-    sorted(base_precos["Estado"].dropna().unique())
+    sorted(base_precos["estado"].dropna().unique())
 )
 
 # -------------------------------
-# SELETOR DE MODO
+# MODO
 # -------------------------------
 modo = st.radio(
-    "Escolha o modo de entrada:",
+    "Escolha o modo:",
     ["Manual", "Planilha"]
 )
 
@@ -57,15 +55,15 @@ if modo == "Manual":
     for i in range(int(qtd)):
         st.markdown(f"### Ingrediente {i+1}")
 
-        nome = st.text_input(f"Nome {i}", key=f"nome_{i}")
+        nome = st.text_input(f"Produto {i}", key=f"nome_{i}")
         quantidade = st.number_input(f"Quantidade {i}", key=f"qtd_{i}")
 
         nome_base = nome.lower().strip()
 
         preco_base = base_precos[
-            (base_precos["Ingrediente"] == nome_base) &
-            (base_precos["Estado"] == estado)
-        ]["Preco"]
+            (base_precos["produto"] == nome_base) &
+            (base_precos["estado"] == estado)
+        ]["preco"]
 
         if not preco_base.empty:
             custo_default = float(preco_base.values[0])
@@ -81,7 +79,7 @@ if modo == "Manual":
         if nome:
             total = quantidade * custo
             ingredientes.append({
-                "Ingrediente": nome,
+                "Produto": nome,
                 "Quantidade": quantidade,
                 "Custo Unitário (R$)": custo,
                 "Custo Total (R$)": total
@@ -97,7 +95,7 @@ if modo == "Manual":
         custo_unitario = custo_total / len(df)
 
         st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
-        st.info(f"📌 Custo Médio por Ingrediente: R$ {custo_unitario:.2f}")
+        st.info(f"📌 Custo Médio por Item: R$ {custo_unitario:.2f}")
 
 # -------------------------------
 # MODO PLANILHA
@@ -118,7 +116,7 @@ else:
         st.subheader("📊 Dados carregados")
         st.dataframe(df)
 
-        colunas_esperadas = ["Ingrediente", "Quantidade", "Custo Unitário"]
+        colunas_esperadas = ["Produto", "Quantidade", "Custo Unitário"]
 
         if all(col in df.columns for col in colunas_esperadas):
 
@@ -131,10 +129,10 @@ else:
             custo_unitario = custo_total / len(df)
 
             st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
-            st.info(f"📌 Custo Médio por Ingrediente: R$ {custo_unitario:.2f}")
+            st.info(f"📌 Custo Médio por Item: R$ {custo_unitario:.2f}")
 
         else:
-            st.error("❌ A planilha precisa ter as colunas: Ingrediente, Quantidade, Custo Unitário")
+            st.error("❌ A planilha precisa ter: Produto, Quantidade, Custo Unitário")
 
     else:
         st.warning("📎 Envie uma planilha para continuar")
