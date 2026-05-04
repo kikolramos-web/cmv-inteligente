@@ -5,9 +5,10 @@ import sqlite3
 st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
 
 st.title("🍽️ CMV Inteligente PRO")
+st.write("🔥 VERSÃO BASE VIVA 3.0 🔥")
 
 # -------------------------------
-# BANCO DE DADOS (SQLite)
+# BANCO DE DADOS
 # -------------------------------
 conn = sqlite3.connect("base_precos.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -23,14 +24,34 @@ CREATE TABLE IF NOT EXISTS precos (
 conn.commit()
 
 # -------------------------------
+# DADOS INICIAIS AUTOMÁTICOS
+# -------------------------------
+cursor.execute("SELECT COUNT(*) FROM precos")
+if cursor.fetchone()[0] == 0:
+    dados = [
+        ("arroz branco", "DF", 5.80),
+        ("arroz branco", "SP", 5.20),
+        ("feijao", "DF", 8.50),
+        ("feijao", "SP", 7.00),
+        ("frango", "SP", 18.00),
+        ("carne", "SP", 28.00),
+        ("batata", "SP", 6.00),
+    ]
+
+    cursor.executemany(
+        "INSERT INTO precos (produto, estado, preco) VALUES (?, ?, ?)",
+        dados
+    )
+    conn.commit()
+
+# -------------------------------
 # FUNÇÕES
 # -------------------------------
 def carregar_base():
     df = pd.read_sql("SELECT * FROM precos", conn)
-    df.columns = df.columns.str.lower()
     return df
 
-def salvar_produto(produto, estado, preco):
+def salvar(produto, estado, preco):
     cursor.execute(
         "INSERT INTO precos (produto, estado, preco) VALUES (?, ?, ?)",
         (produto.lower(), estado, preco)
@@ -38,14 +59,7 @@ def salvar_produto(produto, estado, preco):
     conn.commit()
 
 # -------------------------------
-# RESET
-# -------------------------------
-if st.button("🔄 Resetar aplicação"):
-    st.session_state.clear()
-    st.rerun()
-
-# -------------------------------
-# MENU
+# MENU PRINCIPAL
 # -------------------------------
 menu = st.radio(
     "Escolha uma opção:",
@@ -55,30 +69,29 @@ menu = st.radio(
 # -------------------------------
 # CARREGA BASE
 # -------------------------------
-base_precos = carregar_base()
+base = carregar_base()
 
 # -------------------------------
-# CADASTRO
+# CADASTRAR PRODUTO
 # -------------------------------
 if menu == "Cadastrar Produto":
 
-    st.subheader("📦 Cadastro de Produtos")
+    st.subheader("📦 Cadastro de Produto")
 
     produto = st.text_input("Nome do produto")
     estado = st.selectbox("Estado", ["DF", "SP", "RJ", "MG", "GO"])
     preco = st.number_input("Preço (R$)", min_value=0.0)
 
-    if st.button("Salvar"):
+    if st.button("Salvar produto"):
         if produto and preco > 0:
-            salvar_produto(produto, estado, preco)
-            st.success("✅ Produto salvo com sucesso!")
+            salvar(produto, estado, preco)
+            st.success("✅ Produto cadastrado!")
             st.rerun()
         else:
             st.warning("Preencha corretamente")
 
-    if not base_precos.empty:
-        st.subheader("📊 Base atual")
-        st.dataframe(base_precos)
+    st.subheader("📊 Base atual")
+    st.dataframe(base)
 
 # -------------------------------
 # MONTAR PRATO
@@ -87,53 +100,52 @@ else:
 
     st.subheader("🧾 Montagem do Prato")
 
-    if base_precos.empty:
-        st.warning("⚠️ Cadastre produtos primeiro")
-        st.stop()
-
     estado = st.selectbox(
-        "📍 Selecione o Estado",
-        sorted(base_precos["estado"].unique())
+        "Selecione o Estado",
+        sorted(base["estado"].unique())
     )
 
-    qtd = st.number_input("Quantidade de itens", min_value=1, step=1)
+    qtd = st.number_input("Quantidade de itens", min_value=1)
 
-    ingredientes = []
+    itens = []
 
     for i in range(int(qtd)):
         st.markdown(f"### Item {i+1}")
 
         produto = st.selectbox(
             f"Produto {i}",
-            sorted(base_precos["produto"].unique()),
+            sorted(base["produto"].unique()),
             key=f"prod_{i}"
         )
 
-        quantidade = st.number_input(f"Quantidade {i}", key=f"qtd_{i}")
+        quantidade = st.number_input(
+            f"Quantidade {i}",
+            key=f"qtd_{i}"
+        )
 
-        preco_base = base_precos[
-            (base_precos["produto"] == produto) &
-            (base_precos["estado"] == estado)
+        preco = base[
+            (base["produto"] == produto) &
+            (base["estado"] == estado)
         ]["preco"]
 
-        if not preco_base.empty:
-            custo = float(preco_base.values[0])
+        if not preco.empty:
+            custo = float(preco.values[0])
         else:
             custo = 0.0
 
-        st.write(f"💰 Preço unitário: R$ {custo:.2f}")
+        st.write(f"💰 Custo unitário: R$ {custo:.2f}")
 
         total = quantidade * custo
 
-        ingredientes.append({
+        itens.append({
             "Produto": produto,
             "Quantidade": quantidade,
             "Custo Unitário": custo,
             "Custo Total": total
         })
 
-    if ingredientes:
-        df = pd.DataFrame(ingredientes)
+    if itens:
+        df = pd.DataFrame(itens)
 
         st.subheader("📊 Resultado")
         st.dataframe(df)
@@ -142,7 +154,7 @@ else:
 
         st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
 
-        # IA
+        # IA simples
         st.subheader("🤖 Inteligência de Preço")
 
         margem = st.slider("Margem (%)", 10, 90, 30) / 100
