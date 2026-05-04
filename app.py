@@ -1,24 +1,41 @@
 import streamlit as st
 import pandas as pd
+import sqlite3
 
 st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
 
 st.title("🍽️ CMV Inteligente PRO")
 
 # -------------------------------
-# CARREGAR BASE
+# BANCO DE DADOS (SQLite)
 # -------------------------------
-@st.cache_data
+conn = sqlite3.connect("base_precos.db", check_same_thread=False)
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS precos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    produto TEXT,
+    estado TEXT,
+    preco REAL
+)
+""")
+conn.commit()
+
+# -------------------------------
+# FUNÇÕES
+# -------------------------------
 def carregar_base():
-    df = pd.read_csv("base_precos.csv")
-    df.columns = df.columns.str.strip().str.lower()
+    df = pd.read_sql("SELECT * FROM precos", conn)
+    df.columns = df.columns.str.lower()
     return df
 
-try:
-    base_precos = carregar_base()
-except:
-    st.error("❌ base_precos.csv não encontrado.")
-    st.stop()
+def salvar_produto(produto, estado, preco):
+    cursor.execute(
+        "INSERT INTO precos (produto, estado, preco) VALUES (?, ?, ?)",
+        (produto.lower(), estado, preco)
+    )
+    conn.commit()
 
 # -------------------------------
 # RESET
@@ -28,34 +45,56 @@ if st.button("🔄 Resetar aplicação"):
     st.rerun()
 
 # -------------------------------
-# FILTROS PRINCIPAIS
+# MENU
 # -------------------------------
-estado = st.selectbox(
-    "📍 Selecione o Estado",
-    sorted(base_precos["estado"].dropna().unique())
+menu = st.radio(
+    "Escolha uma opção:",
+    ["Montar Prato", "Cadastrar Produto"]
 )
 
-modo = st.radio(
-    "Modo de uso:",
-    ["Manual", "Planilha"]
-)
-
-st.divider()
+# -------------------------------
+# CARREGA BASE
+# -------------------------------
+base_precos = carregar_base()
 
 # -------------------------------
-# FUNÇÃO DE IA (SIMPLES)
+# CADASTRO
 # -------------------------------
-def calcular_preco(custo_total, margem):
-    if margem >= 1:
-        return 0
-    return custo_total / (1 - margem)
+if menu == "Cadastrar Produto":
+
+    st.subheader("📦 Cadastro de Produtos")
+
+    produto = st.text_input("Nome do produto")
+    estado = st.selectbox("Estado", ["DF", "SP", "RJ", "MG", "GO"])
+    preco = st.number_input("Preço (R$)", min_value=0.0)
+
+    if st.button("Salvar"):
+        if produto and preco > 0:
+            salvar_produto(produto, estado, preco)
+            st.success("✅ Produto salvo com sucesso!")
+            st.rerun()
+        else:
+            st.warning("Preencha corretamente")
+
+    if not base_precos.empty:
+        st.subheader("📊 Base atual")
+        st.dataframe(base_precos)
 
 # -------------------------------
-# MODO MANUAL
+# MONTAR PRATO
 # -------------------------------
-if modo == "Manual":
+else:
 
     st.subheader("🧾 Montagem do Prato")
+
+    if base_precos.empty:
+        st.warning("⚠️ Cadastre produtos primeiro")
+        st.stop()
+
+    estado = st.selectbox(
+        "📍 Selecione o Estado",
+        sorted(base_precos["estado"].unique())
+    )
 
     qtd = st.number_input("Quantidade de itens", min_value=1, step=1)
 
@@ -64,35 +103,34 @@ if modo == "Manual":
     for i in range(int(qtd)):
         st.markdown(f"### Item {i+1}")
 
-        nome = st.text_input(f"Produto {i}", key=f"nome_{i}")
+        produto = st.selectbox(
+            f"Produto {i}",
+            sorted(base_precos["produto"].unique()),
+            key=f"prod_{i}"
+        )
+
         quantidade = st.number_input(f"Quantidade {i}", key=f"qtd_{i}")
 
-        nome_base = nome.lower().strip()
-
         preco_base = base_precos[
-            (base_precos["produto"] == nome_base) &
+            (base_precos["produto"] == produto) &
             (base_precos["estado"] == estado)
         ]["preco"]
 
         if not preco_base.empty:
-            custo_default = float(preco_base.values[0])
+            custo = float(preco_base.values[0])
         else:
-            custo_default = 0.0
+            custo = 0.0
 
-        custo = st.number_input(
-            f"Custo unitário (R$) {i}",
-            value=custo_default,
-            key=f"custo_{i}"
-        )
+        st.write(f"💰 Preço unitário: R$ {custo:.2f}")
 
-        if nome:
-            total = quantidade * custo
-            ingredientes.append({
-                "Produto": nome,
-                "Quantidade": quantidade,
-                "Custo Unitário (R$)": custo,
-                "Custo Total (R$)": total
-            })
+        total = quantidade * custo
+
+        ingredientes.append({
+            "Produto": produto,
+            "Quantidade": quantidade,
+            "Custo Unitário": custo,
+            "Custo Total": total
+        })
 
     if ingredientes:
         df = pd.DataFrame(ingredientes)
@@ -100,74 +138,25 @@ if modo == "Manual":
         st.subheader("📊 Resultado")
         st.dataframe(df)
 
-        custo_total = df["Custo Total (R$)"].sum()
+        custo_total = df["Custo Total"].sum()
 
         st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
 
-        # -------------------------------
-        # IA DE PREÇO
-        # -------------------------------
+        # IA
         st.subheader("🤖 Inteligência de Preço")
 
-        margem = st.slider(
-            "Margem desejada (%)",
-            10, 90, 30
-        ) / 100
+        margem = st.slider("Margem (%)", 10, 90, 30) / 100
 
-        preco_venda = calcular_preco(custo_total, margem)
-        lucro = preco_venda - custo_total
-
-        st.success(f"💰 Preço sugerido: R$ {preco_venda:.2f}")
-        st.info(f"📈 Lucro estimado: R$ {lucro:.2f}")
-
-        # ALERTAS
-        if margem < 0.2:
-            st.warning("⚠️ Margem muito baixa")
-        elif margem > 0.6:
-            st.info("💡 Margem alta — pode impactar vendas")
-        else:
-            st.success("✅ Margem saudável")
-
-# -------------------------------
-# MODO PLANILHA
-# -------------------------------
-else:
-
-    st.subheader("📂 Upload da Planilha")
-
-    arquivo = st.file_uploader("Envie (.xlsx)", type=["xlsx"])
-
-    if arquivo:
-
-        df = pd.read_excel(arquivo)
-        st.dataframe(df)
-
-        colunas = ["Produto", "Quantidade", "Custo Unitário"]
-
-        if all(col in df.columns for col in colunas):
-
-            df["Custo Total (R$)"] = df["Quantidade"] * df["Custo Unitário"]
-
-            custo_total = df["Custo Total (R$)"].sum()
-
-            st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
-
-            # IA
-            st.subheader("🤖 Inteligência de Preço")
-
-            margem = st.slider(
-                "Margem desejada (%)",
-                10, 90, 30
-            ) / 100
-
-            preco_venda = calcular_preco(custo_total, margem)
+        if custo_total > 0:
+            preco_venda = custo_total / (1 - margem)
             lucro = preco_venda - custo_total
 
             st.success(f"💰 Preço sugerido: R$ {preco_venda:.2f}")
             st.info(f"📈 Lucro estimado: R$ {lucro:.2f}")
 
-        else:
-            st.error("❌ Planilha precisa ter: Produto, Quantidade, Custo Unitário")
-
-    else:
-        st.warning("📎 Envie uma planilha")
+            if margem < 0.2:
+                st.warning("⚠️ Margem baixa")
+            elif margem > 0.6:
+                st.info("💡 Margem alta")
+            else:
+                st.success("✅ Margem saudável")
