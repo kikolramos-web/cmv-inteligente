@@ -1,208 +1,160 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+import os
 
 st.set_page_config(page_title="CMV Inteligente PRO", layout="centered")
 
 st.title("🍽️ CMV Inteligente PRO")
-st.write("🔥 VERSÃO BASE VIVA 4.0 🔥")
 
-# -------------------------------
-# BANCO DE DADOS
-# -------------------------------
-conn = sqlite3.connect("base_precos.db", check_same_thread=False)
-cursor = conn.cursor()
+# ---------------------------
+# ARQUIVOS
+# ---------------------------
+ARQ_PRECOS = "base_precos.csv"
+ARQ_PRATOS = "pratos.csv"
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS precos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    produto TEXT,
-    estado TEXT,
-    preco REAL
-)
-""")
-conn.commit()
+# ---------------------------
+# CRIAR BASE INICIAL
+# ---------------------------
+if not os.path.exists(ARQ_PRECOS):
+    df_init = pd.DataFrame({
+        "Estado": ["DF","DF","SP","SP","RJ","MG"],
+        "Produto": ["arroz","feijao","arroz","frango","carne","frango"],
+        "Preco": [5.5,7.0,5.2,11.5,26.0,11.0]
+    })
+    df_init.to_csv(ARQ_PRECOS, index=False)
 
-# -------------------------------
-# DADOS INICIAIS AUTOMÁTICOS
-# -------------------------------
-cursor.execute("SELECT COUNT(*) FROM precos")
-if cursor.fetchone()[0] == 0:
-    dados = [
-        ("arroz branco", "DF", 5.80),
-        ("arroz branco", "SP", 5.20),
-        ("feijao", "DF", 8.50),
-        ("feijao", "SP", 7.00),
-        ("frango", "SP", 18.00),
-        ("carne", "SP", 28.00),
-        ("batata", "SP", 6.00),
-    ]
+df_precos = pd.read_csv(ARQ_PRECOS)
 
-    cursor.executemany(
-        "INSERT INTO precos (produto, estado, preco) VALUES (?, ?, ?)",
-        dados
-    )
-    conn.commit()
+# ---------------------------
+# ESTADO
+# ---------------------------
+estados = sorted(df_precos["Estado"].unique())
+estado = st.selectbox("📍 Selecione o Estado", estados)
 
-# -------------------------------
-# FUNÇÕES
-# -------------------------------
-def carregar_base():
-    return pd.read_sql("SELECT * FROM precos", conn)
+df_estado = df_precos[df_precos["Estado"] == estado]
 
-def salvar(produto, estado, preco):
-    cursor.execute(
-        "INSERT INTO precos (produto, estado, preco) VALUES (?, ?, ?)",
-        (produto.lower(), estado, preco)
-    )
-    conn.commit()
+# ---------------------------
+# CADASTRO DE INGREDIENTE
+# ---------------------------
+st.subheader("➕ Cadastrar / Atualizar Ingrediente")
 
-# -------------------------------
-# MENU PRINCIPAL
-# -------------------------------
-menu = st.radio(
-    "Escolha uma opção:",
-    ["Montar Prato", "Cadastrar Produto"]
-)
+col1, col2 = st.columns(2)
 
-# -------------------------------
-# CARREGA BASE
-# -------------------------------
-base = carregar_base()
+with col1:
+    novo_produto = st.text_input("Produto")
 
-# -------------------------------
-# CADASTRAR PRODUTO
-# -------------------------------
-if menu == "Cadastrar Produto":
+with col2:
+    novo_preco = st.number_input("Preço", min_value=0.0)
 
-    st.subheader("📦 Cadastro de Produto")
-
-    produto = st.text_input("Nome do produto")
-    estado = st.selectbox("Estado", ["DF", "SP", "RJ", "MG", "GO"])
-    preco = st.number_input("Preço (R$)", min_value=0.0)
-
-    if st.button("Salvar produto"):
-        if produto and preco > 0:
-            salvar(produto, estado, preco)
-            st.success("✅ Produto cadastrado!")
-            st.rerun()
-        else:
-            st.warning("Preencha corretamente")
-
-    st.subheader("📊 Base atual")
-    st.dataframe(base)
-
-# -------------------------------
-# MONTAR PRATO
-# -------------------------------
-else:
-
-    st.subheader("🧾 Montagem do Prato")
-
-    estado = st.selectbox(
-        "Selecione o Estado",
-        sorted(base["estado"].unique())
-    )
-
-    qtd = st.number_input("Quantidade de itens", min_value=1)
-
-    itens = []
-
-    for i in range(int(qtd)):
-        st.markdown(f"### Item {i+1}")
-
-        produto = st.selectbox(
-            f"Produto {i}",
-            sorted(base["produto"].unique()),
-            key=f"prod_{i}"
-        )
-
-        quantidade = st.number_input(
-            f"Quantidade {i}",
-            key=f"qtd_{i}"
-        )
-
-        preco = base[
-            (base["produto"] == produto) &
-            (base["estado"] == estado)
-        ]["preco"]
-
-        custo = float(preco.values[0]) if not preco.empty else 0.0
-
-        st.write(f"💰 Custo unitário: R$ {custo:.2f}")
-
-        total = quantidade * custo
-
-        itens.append({
-            "Produto": produto,
-            "Quantidade": quantidade,
-            "Custo Unitário": custo,
-            "Custo Total": total
+if st.button("Salvar Ingrediente"):
+    if novo_produto:
+        novo = pd.DataFrame({
+            "Estado":[estado],
+            "Produto":[novo_produto.lower()],
+            "Preco":[novo_preco]
         })
 
-    if itens:
-        df = pd.DataFrame(itens)
+        df_precos = pd.concat([df_precos, novo], ignore_index=True)
+        df_precos.to_csv(ARQ_PRECOS, index=False)
 
-        st.subheader("📊 Resultado")
-        st.dataframe(df)
+        st.success("✅ Ingrediente salvo!")
+        st.rerun()
+    else:
+        st.warning("Digite um produto")
 
-        custo_total = df["Custo Total"].sum()
+# ---------------------------
+# MONTAGEM DO PRATO
+# ---------------------------
+st.subheader("🧾 Montagem do Prato")
 
-        st.success(f"💰 Custo Total: R$ {custo_total:.2f}")
+qtd = st.number_input("Quantidade de ingredientes", 1, 10, 1)
 
-        # -------------------------------
-        # IA DE PREÇO
-        # -------------------------------
-        st.subheader("🤖 Inteligência de Preço")
+ingredientes = []
+custos = []
 
-        margem = st.slider("Margem (%)", 10, 90, 30) / 100
+for i in range(qtd):
+    st.markdown(f"### Ingrediente {i+1}")
 
-        if custo_total > 0:
-            preco_venda = custo_total / (1 - margem)
-            lucro = preco_venda - custo_total
+    produtos_lista = df_estado["Produto"].unique()
 
-            st.success(f"💰 Preço sugerido: R$ {preco_venda:.2f}")
-            st.info(f"📈 Lucro estimado: R$ {lucro:.2f}")
+    produto = st.selectbox(f"Produto {i+1}", produtos_lista, key=f"prod_{i}")
 
-            if margem < 0.2:
-                st.warning("⚠️ Margem baixa")
-            elif margem > 0.6:
-                st.info("💡 Margem alta")
-            else:
-                st.success("✅ Margem saudável")
+    preco_base = df_estado[df_estado["Produto"] == produto]["Preco"].values[0]
 
-        # -------------------------------
-        # 🧠 ANÁLISE INTELIGENTE
-        # -------------------------------
-        st.subheader("🧠 Análise Inteligente do Prato")
+    quantidade = st.number_input(f"Quantidade {i+1}", min_value=0.0, value=1.0, key=f"qtd_{i}")
 
-        df["Peso (%)"] = (df["Custo Total"] / custo_total) * 100
+    custo = preco_base * quantidade
 
-        item_caro = df.loc[df["Custo Total"].idxmax()]
+    st.write(f"💰 Preço base: R$ {preco_base:.2f}")
+    st.write(f"➡️ Custo: R$ {custo:.2f}")
 
-        st.warning(
-            f"🔎 Item que mais impacta o custo: {item_caro['Produto']} "
-            f"(R$ {item_caro['Custo Total']:.2f})"
-        )
+    ingredientes.append(produto)
+    custos.append(custo)
 
-        st.subheader("📊 Participação no custo (%)")
-        st.dataframe(df[["Produto", "Peso (%)"]])
+# ---------------------------
+# RESULTADO
+# ---------------------------
+st.subheader("📊 Resultado")
 
-        impacto = item_caro["Custo Total"] / custo_total
+custo_total = sum(custos)
 
-        if impacto > 0.5:
-            st.error("🚨 Um único item domina o custo do prato")
-        elif impacto > 0.3:
-            st.warning("⚠️ Alto impacto de um item no custo")
+preco_venda = st.number_input("Preço de venda", min_value=0.0)
+
+cmv = (custo_total / preco_venda * 100) if preco_venda > 0 else 0
+
+st.markdown(f"### 💵 Custo Total: R$ {custo_total:.2f}")
+st.markdown(f"### 📈 CMV: {cmv:.2f}%")
+
+# Sugestão inteligente
+if custo_total > 0:
+    preco_ideal = custo_total / 0.4  # alvo CMV 40%
+    st.info(f"💡 Preço sugerido (CMV 40%): R$ {preco_ideal:.2f}")
+
+if cmv > 60:
+    st.error("⚠️ CMV alto!")
+elif cmv > 40:
+    st.warning("⚠️ CMV médio")
+elif cmv > 0:
+    st.success("🔥 CMV saudável")
+
+# ---------------------------
+# SALVAR PRATO
+# ---------------------------
+st.subheader("💾 Salvar Prato")
+
+nome = st.text_input("Nome do prato")
+
+if st.button("Salvar Prato"):
+    if nome:
+        novo_prato = pd.DataFrame({
+            "Prato":[nome],
+            "Estado":[estado],
+            "Custo":[custo_total],
+            "Venda":[preco_venda],
+            "CMV":[cmv]
+        })
+
+        if os.path.exists(ARQ_PRATOS):
+            novo_prato.to_csv(ARQ_PRATOS, mode='a', header=False, index=False)
         else:
-            st.success("✅ Custo bem distribuído")
+            novo_prato.to_csv(ARQ_PRATOS, index=False)
 
-        st.subheader("💡 Sugestão Inteligente")
+        st.success("✅ Prato salvo!")
+    else:
+        st.warning("Digite o nome")
 
-        if impacto > 0.4:
-            st.info(
-                f"Considere reduzir o custo de '{item_caro['Produto']}' "
-                f"ou buscar fornecedor mais barato."
-            )
-        else:
-            st.info("Distribuição equilibrada — bom controle de custo.")
+# ---------------------------
+# HISTÓRICO
+# ---------------------------
+st.subheader("📚 Histórico")
+
+if os.path.exists(ARQ_PRATOS):
+    df_hist = pd.read_csv(ARQ_PRATOS)
+
+    st.dataframe(df_hist)
+
+    if st.button("📊 Ver Estatísticas"):
+        st.write("Média CMV:", df_hist["CMV"].mean())
+        st.write("Custo médio:", df_hist["Custo"].mean())
+else:
+    st.info("Sem dados ainda")
