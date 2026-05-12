@@ -1,4 +1,4 @@
-import streamlit as st
+
         novo_prato = pd.DataFrame({
             "Prato": [nome_prato.strip()],
             "Estado": [estado],
