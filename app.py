@@ -13,50 +13,81 @@ st.set_page_config(
 )
 
 # ---------------------------------
-# ESTILO VISUAL
+# ESTILO VISUAL NOVO
 # ---------------------------------
 st.markdown("""
 <style>
 
-.main {
-    background-color: #f7f7f7;
-}
-
 .stApp {
-    background-color: #f7f7f7;
+    background-color: #eef2f7;
 }
 
-h1, h2, h3 {
-    color: #2c3e50;
+/* TITULOS */
+h1 {
+    color: #1f2937;
+    font-weight: 700;
 }
 
+h2, h3 {
+    color: #334155;
+}
+
+/* SIDEBAR */
+[data-testid="stSidebar"] {
+    background-color: #dbe4ee;
+}
+
+/* CARDS METRIC */
 div[data-testid="stMetric"] {
-    background-color: #ffffff;
-    border-radius: 15px;
-    padding: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    background-color: white;
+    border-radius: 18px;
+    padding: 20px;
+    border-left: 6px solid #4f46e5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
+/* BOTÕES */
 .stButton>button {
-    background-color: #a8dadc;
-    color: #1d3557;
-    border-radius: 10px;
+    background-color: #4f46e5;
+    color: white;
+    border-radius: 12px;
     border: none;
-    font-weight: bold;
-    padding: 10px 20px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
 }
 
 .stButton>button:hover {
-    background-color: #8ecae6;
-    color: black;
+    background-color: #4338ca;
+    color: white;
 }
 
-[data-testid="stSidebar"] {
-    background-color: #edf6f9;
+/* INPUTS */
+.stTextInput input,
+.stNumberInput input,
+.stSelectbox div[data-baseweb="select"] {
+    background-color: white;
+    color: #111827;
+    border-radius: 10px;
 }
 
+/* DATAFRAME */
+[data-testid="stDataFrame"] {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+/* ALERTAS */
+.stSuccess,
+.stWarning,
+.stError,
+.stInfo {
+    border-radius: 12px;
+}
+
+/* ESPAÇAMENTO */
 .block-container {
     padding-top: 2rem;
+    padding-bottom: 2rem;
 }
 
 </style>
@@ -79,84 +110,45 @@ ARQ_PRATOS = "pratos.csv"
 if "qtd_ingredientes" not in st.session_state:
     st.session_state.qtd_ingredientes = 1
 
-if "modo_edicao" not in st.session_state:
-    st.session_state.modo_edicao = False
-
-if "prato_editando" not in st.session_state:
-    st.session_state.prato_editando = ""
-
 # ---------------------------------
-# FUNÇÃO BASE PADRÃO
+# BASE PADRÃO
 # ---------------------------------
 def criar_base_padrao():
 
     df_init = pd.DataFrame({
-        "Estado": [
-            "DF", "DF", "DF",
-            "SP", "SP", "SP",
-            "RJ", "RJ",
-            "MG", "MG",
-            "BA", "BA",
-            "GO", "GO",
-            "PR", "PR",
-            "SC", "SC",
-            "RS", "RS"
-        ],
-        "Produto": [
-            "arroz", "feijao", "frango",
-            "arroz", "feijao", "frango",
-            "arroz", "carne",
-            "feijao", "frango",
-            "arroz", "carne",
-            "arroz", "frango",
-            "feijao", "carne",
-            "arroz", "frango",
-            "feijao", "carne"
-        ],
-        "Preco": [
-            5.50, 7.00, 12.00,
-            5.20, 6.80, 11.50,
-            5.80, 26.00,
-            6.50, 11.00,
-            5.70, 25.50,
-            5.40, 11.80,
-            6.70, 24.50,
-            5.60, 11.30,
-            6.90, 25.00
-        ]
+        "Estado": ["DF", "SP", "RJ"],
+        "Produto": ["arroz", "feijao", "frango"],
+        "Preco": [5.50, 6.80, 12.00]
     })
 
     df_init.to_csv(ARQ_PRECOS, index=False)
+
     return df_init
 
 # ---------------------------------
 # CARREGAR BASE
 # ---------------------------------
 if not os.path.exists(ARQ_PRECOS):
+
     df_precos = criar_base_padrao()
 
 else:
 
     try:
+
         df_precos = pd.read_csv(ARQ_PRECOS)
 
         if df_precos.empty:
             df_precos = criar_base_padrao()
 
-        df_precos.columns = df_precos.columns.str.strip().str.capitalize()
-
-        colunas_esperadas = ["Estado", "Produto", "Preco"]
-
-        if not all(col in df_precos.columns for col in colunas_esperadas):
-            df_precos = criar_base_padrao()
-
     except:
+
         df_precos = criar_base_padrao()
 
 # ---------------------------------
 # SIDEBAR
 # ---------------------------------
-st.sidebar.title("📌 Menu")
+st.sidebar.title("📌 Painel")
 
 estados = sorted(df_precos["Estado"].unique())
 
@@ -175,7 +167,7 @@ produtos_lista = sorted(df_estado["Produto"].unique())
 # ---------------------------------
 # CADASTRAR INGREDIENTE
 # ---------------------------------
-st.subheader("➕ Cadastrar / Atualizar Ingrediente")
+st.subheader("➕ Cadastro de Ingredientes")
 
 col1, col2, col3 = st.columns(3)
 
@@ -190,7 +182,7 @@ with col2:
     )
 
 with col3:
-    nova_unidade = st.selectbox(
+    unidade = st.selectbox(
         "Unidade",
         ["kg", "g", "lt", "ml", "un"]
     )
@@ -223,72 +215,14 @@ if st.button("Salvar Ingrediente"):
                 ignore_index=True
             )
 
-        df_precos.to_csv(ARQ_PRECOS, index=False)
+        df_precos.to_csv(
+            ARQ_PRECOS,
+            index=False
+        )
 
-        st.success("✅ Ingrediente salvo com sucesso!")
+        st.success("✅ Ingrediente salvo!")
+
         st.rerun()
-
-    else:
-        st.warning("Digite o nome do produto.")
-
-# ---------------------------------
-# EDITAR PRATO
-# ---------------------------------
-st.subheader("✏️ Editar Prato")
-
-if os.path.exists(ARQ_PRATOS):
-
-    try:
-
-        df_pratos_existentes = pd.read_csv(ARQ_PRATOS)
-
-        if not df_pratos_existentes.empty:
-
-            lista_pratos = df_pratos_existentes["Prato"].unique().tolist()
-
-            prato_selecionado = st.selectbox(
-                "Selecione um prato salvo",
-                [""] + lista_pratos
-            )
-
-            if st.button("Carregar Prato"):
-
-                if prato_selecionado:
-
-                    prato_data = df_pratos_existentes[
-                        df_pratos_existentes["Prato"] == prato_selecionado
-                    ].iloc[0]
-
-                    ingredientes_salvos = json.loads(
-                        prato_data["Ingredientes"]
-                    )
-
-                    st.session_state.qtd_ingredientes = len(
-                        ingredientes_salvos
-                    )
-
-                    for i, item in enumerate(ingredientes_salvos):
-
-                        st.session_state[f"produto_{i}"] = item["produto"]
-
-                        st.session_state[f"quantidade_{i}"] = item["quantidade"]
-
-                        st.session_state[f"unidade_{i}"] = item.get(
-                            "unidade",
-                            "kg"
-                        )
-
-                    st.session_state["preco_venda"] = float(
-                        prato_data["Venda"]
-                    )
-
-                    st.session_state["nome_prato"] = prato_data["Prato"]
-
-                    st.success("✅ Prato carregado!")
-                    st.rerun()
-
-    except:
-        st.warning("Erro ao carregar pratos.")
 
 # ---------------------------------
 # MONTAGEM DO PRATO
@@ -309,29 +243,15 @@ custos = []
 
 for i in range(qtd):
 
-    st.markdown(f"### Ingrediente {i + 1}")
+    st.markdown(f"### Ingrediente {i+1}")
 
     col1, col2, col3 = st.columns(3)
-
-    produto_padrao = (
-        st.session_state.get(f"produto_{i}", produtos_lista[0])
-        if produtos_lista else ""
-    )
-
-    if produto_padrao not in produtos_lista and produtos_lista:
-        produto_padrao = produtos_lista[0]
-
-    index_produto = (
-        produtos_lista.index(produto_padrao)
-        if produto_padrao in produtos_lista else 0
-    )
 
     with col1:
 
         produto = st.selectbox(
             f"Produto {i+1}",
             produtos_lista,
-            index=index_produto,
             key=f"produto_{i}"
         )
 
@@ -340,15 +260,13 @@ for i in range(qtd):
         quantidade = st.number_input(
             f"Quantidade {i+1}",
             min_value=0.0,
-            value=float(
-                st.session_state.get(f"quantidade_{i}", 1.0)
-            ),
+            value=1.0,
             key=f"quantidade_{i}"
         )
 
     with col3:
 
-        unidade = st.selectbox(
+        unidade_item = st.selectbox(
             f"Unidade {i+1}",
             ["kg", "g", "lt", "ml", "un"],
             key=f"unidade_{i}"
@@ -361,15 +279,15 @@ for i in range(qtd):
     custo = preco_base * quantidade
 
     st.info(
-        f"💰 Preço base: R$ {preco_base:.2f} | "
-        f"📦 Quantidade: {quantidade} {unidade} | "
+        f"💰 Preço Base: R$ {preco_base:.2f} | "
+        f"📦 Quantidade: {quantidade} {unidade_item} | "
         f"➡️ Custo: R$ {custo:.2f}"
     )
 
     ingredientes_json.append({
         "produto": produto,
         "quantidade": quantidade,
-        "unidade": unidade,
+        "unidade": unidade_item,
         "preco_base": preco_base,
         "custo": round(custo, 2)
     })
@@ -384,12 +302,8 @@ st.subheader("📊 Resultado")
 custo_total = sum(custos)
 
 preco_venda = st.number_input(
-    "Preço de venda do prato",
-    min_value=0.0,
-    value=float(
-        st.session_state.get("preco_venda", 0.0)
-    ),
-    key="preco_venda"
+    "Preço de Venda",
+    min_value=0.0
 )
 
 cmv = (
@@ -439,10 +353,7 @@ elif cmv > 0:
 # ---------------------------------
 st.subheader("💾 Salvar Prato")
 
-nome_prato = st.text_input(
-    "Nome do prato",
-    value=st.session_state.get("nome_prato", "")
-)
+nome_prato = st.text_input("Nome do prato")
 
 if st.button("Salvar Prato"):
 
@@ -450,7 +361,7 @@ if st.button("Salvar Prato"):
 
         novo_prato = pd.DataFrame({
 
-            "Prato": [nome_prato.strip()],
+            "Prato": [nome_prato],
             "Estado": [estado],
             "Ingredientes": [json.dumps(ingredientes_json)],
             "Custo": [round(custo_total, 2)],
@@ -463,30 +374,19 @@ if st.button("Salvar Prato"):
 
             df_existente = pd.read_csv(ARQ_PRATOS)
 
-            if nome_prato.strip() in df_existente["Prato"].values:
+            df_existente = df_existente[
+                df_existente["Prato"] != nome_prato
+            ]
 
-                df_existente = df_existente[
-                    df_existente["Prato"] != nome_prato.strip()
-                ]
+            df_final = pd.concat(
+                [df_existente, novo_prato],
+                ignore_index=True
+            )
 
-                df_final = pd.concat(
-                    [df_existente, novo_prato],
-                    ignore_index=True
-                )
-
-                df_final.to_csv(
-                    ARQ_PRATOS,
-                    index=False
-                )
-
-            else:
-
-                novo_prato.to_csv(
-                    ARQ_PRATOS,
-                    mode="a",
-                    header=False,
-                    index=False
-                )
+            df_final.to_csv(
+                ARQ_PRATOS,
+                index=False
+            )
 
         else:
 
@@ -497,13 +397,10 @@ if st.button("Salvar Prato"):
 
         st.success("✅ Prato salvo com sucesso!")
 
-    else:
-        st.warning("Digite o nome do prato.")
-
 # ---------------------------------
 # HISTÓRICO
 # ---------------------------------
-st.subheader("📚 Histórico de Pratos")
+st.subheader("📚 Histórico")
 
 if os.path.exists(ARQ_PRATOS):
 
@@ -514,7 +411,7 @@ if os.path.exists(ARQ_PRATOS):
         if not df_hist.empty:
 
             # DASHBOARD
-            st.subheader("📊 Dashboard CMV")
+            st.subheader("📊 Dashboard")
 
             fig = px.bar(
                 df_hist,
@@ -522,7 +419,7 @@ if os.path.exists(ARQ_PRATOS):
                 y="CMV",
                 color="CMV",
                 text="CMV",
-                title="CMV por Prato"
+                title="CMV por prato"
             )
 
             st.plotly_chart(
@@ -530,29 +427,29 @@ if os.path.exists(ARQ_PRATOS):
                 use_container_width=True
             )
 
-            # FORMATAÇÃO
-            df_hist_exibir = df_hist.copy()
+            # FORMATAR
+            df_exibir = df_hist.copy()
 
-            df_hist_exibir["Custo"] = df_hist_exibir["Custo"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            df_exibir["Custo"] = df_exibir["Custo"].apply(
+                lambda x: f"R$ {x:.2f}"
             )
 
-            df_hist_exibir["Venda"] = df_hist_exibir["Venda"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            df_exibir["Venda"] = df_exibir["Venda"].apply(
+                lambda x: f"R$ {x:.2f}"
             )
 
-            df_hist_exibir["CMV"] = df_hist_exibir["CMV"].apply(
+            df_exibir["CMV"] = df_exibir["CMV"].apply(
                 lambda x: f"{x:.2f}%"
             )
 
             st.dataframe(
-                df_hist_exibir[
+                df_exibir[
                     ["Prato", "Estado", "Custo", "Venda", "CMV"]
                 ],
                 use_container_width=True
             )
 
-            # ESTATÍSTICAS
+            # MÉTRICAS
             st.subheader("📌 Estatísticas")
 
             col1, col2, col3 = st.columns(3)
@@ -568,15 +465,18 @@ if os.path.exists(ARQ_PRATOS):
             )
 
             col3.metric(
-                "🍽️ Total de Pratos",
+                "🍽️ Total de pratos",
                 len(df_hist)
             )
 
         else:
-            st.info("Nenhum prato salvo ainda.")
+
+            st.info("Nenhum prato salvo.")
 
     except:
-        st.warning("Não foi possível carregar histórico.")
+
+        st.warning("Erro ao carregar histórico.")
 
 else:
+
     st.info("Nenhum prato salvo ainda.")
