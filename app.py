@@ -14,59 +14,98 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILO VISUAL PREMIUM
+# CSS PREMIUM DARK
 # =====================================================
 st.markdown("""
 <style>
 
 /* FUNDO GERAL */
 .stApp {
-    background-color: #f4f6f9;
+    background-color: #0f172a;
 }
 
 /* SIDEBAR */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1e293b, #0f172a);
-    padding-top: 2rem;
+    background: linear-gradient(180deg, #111827, #020617);
+    border-right: 1px solid #1e293b;
 }
 
 [data-testid="stSidebar"] * {
-    color: white;
+    color: #f8fafc;
 }
 
 /* TITULOS */
 h1 {
-    color: #111827;
+    color: #f8fafc;
     font-weight: 800;
-    font-size: 2.5rem;
+    font-size: 2.8rem;
 }
 
 h2, h3 {
-    color: #1f2937;
+    color: #e2e8f0;
     font-weight: 700;
 }
 
-/* TEXTO */
-p, label, span, div {
-    color: #374151;
+/* TEXTOS */
+p, label, span {
+    color: #cbd5e1 !important;
 }
 
-/* CONTAINERS */
-.container-box {
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 20px;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+/* TABS */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 10px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background-color: #1e293b;
+    color: #cbd5e1;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-weight: 600;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(90deg, #2563eb, #3b82f6) !important;
+    color: white !important;
 }
 
 /* MÉTRICAS */
 div[data-testid="stMetric"] {
-    background-color: white;
+    background: #111827;
     border-radius: 20px;
     padding: 20px;
-    border-left: 6px solid #2563eb;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    border: 1px solid #1e40af;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+/* LABELS */
+.stTextInput label,
+.stNumberInput label,
+.stSelectbox label {
+    color: #f8fafc !important;
+    font-weight: 600;
+}
+
+/* INPUTS */
+.stTextInput input,
+.stNumberInput input {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+}
+
+/* SELECTBOX */
+.stSelectbox div[data-baseweb="select"] {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-radius: 12px !important;
+    border: 1px solid #334155 !important;
+}
+
+/* TEXTO DOS INPUTS */
+input, textarea {
+    color: #f8fafc !important;
 }
 
 /* BOTÕES */
@@ -81,25 +120,9 @@ div[data-testid="stMetric"] {
 }
 
 .stButton>button:hover {
-    background: linear-gradient(90deg, #1d4ed8, #1e40af);
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
     transform: scale(1.02);
     color: white;
-}
-
-/* INPUTS */
-.stTextInput input,
-.stNumberInput input,
-.stSelectbox div[data-baseweb="select"] {
-    background-color: white;
-    border-radius: 12px;
-    border: 1px solid #d1d5db;
-}
-
-/* TABELA */
-[data-testid="stDataFrame"] {
-    border-radius: 15px;
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
 }
 
 /* ALERTAS */
@@ -108,21 +131,19 @@ div[data-testid="stMetric"] {
 .stError,
 .stInfo {
     border-radius: 14px;
+    background-color: #111827 !important;
+    color: #f8fafc !important;
 }
 
-/* TABS */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 10px;
+/* DATAFRAME */
+[data-testid="stDataFrame"] {
+    border-radius: 15px;
+    overflow: hidden;
+    border: 1px solid #1e293b;
 }
 
-.stTabs [data-baseweb="tab"] {
-    background-color: white;
-    border-radius: 12px;
-    padding: 10px 20px;
-}
-
-.stTabs [aria-selected="true"] {
-    background-color: #2563eb !important;
+/* TABELA */
+table {
     color: white !important;
 }
 
@@ -130,6 +151,12 @@ div[data-testid="stMetric"] {
 .block-container {
     padding-top: 2rem;
     padding-bottom: 2rem;
+}
+
+/* GRÁFICOS */
+.js-plotly-plot {
+    border-radius: 18px;
+    overflow: hidden;
 }
 
 </style>
@@ -433,7 +460,6 @@ with tab2:
 
         custos.append(custo)
 
-    # RESULTADO
     st.subheader("📊 Resultado")
 
     custo_total = sum(custos)
@@ -485,7 +511,6 @@ with tab2:
     elif cmv > 0:
         st.success("🔥 Excelente margem!")
 
-    # SALVAR
     st.subheader("💾 Salvar Prato")
 
     nome_prato = st.text_input(
@@ -569,8 +594,8 @@ with tab3:
                     y="CMV",
                     color="CMV",
                     text="CMV",
-                    title="CMV por prato",
-                    template="plotly_white"
+                    template="plotly_dark",
+                    title="CMV por prato"
                 )
 
                 st.plotly_chart(
@@ -582,8 +607,9 @@ with tab3:
                     df_dash,
                     names="Prato",
                     values="Venda",
-                    title="Participação em vendas",
-                    hole=0.5
+                    hole=0.5,
+                    template="plotly_dark",
+                    title="Participação em vendas"
                 )
 
                 st.plotly_chart(
@@ -602,7 +628,7 @@ with tab3:
 # =====================================================
 with tab4:
 
-    st.subheader("📚 Histórico de Pratos")
+    st.subheader("📚 Histórico")
 
     if os.path.exists(ARQ_PRATOS):
 
