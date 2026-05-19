@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # ---------------------------------
-# ESTILO VISUAL NOVO
+# ESTILO VISUAL
 # ---------------------------------
 st.markdown("""
 <style>
@@ -37,7 +37,7 @@ h2, h3 {
     background-color: #dbe4ee;
 }
 
-/* CARDS METRIC */
+/* CARDS */
 div[data-testid="stMetric"] {
     background-color: white;
     border-radius: 18px;
@@ -70,7 +70,7 @@ div[data-testid="stMetric"] {
     border-radius: 10px;
 }
 
-/* DATAFRAME */
+/* TABELAS */
 [data-testid="stDataFrame"] {
     border-radius: 15px;
     overflow: hidden;
@@ -116,12 +116,27 @@ if "qtd_ingredientes" not in st.session_state:
 def criar_base_padrao():
 
     df_init = pd.DataFrame({
-        "Estado": ["DF", "SP", "RJ"],
-        "Produto": ["arroz", "feijao", "frango"],
-        "Preco": [5.50, 6.80, 12.00]
+        "Estado": [
+            "DF",
+            "SP",
+            "RJ"
+        ],
+        "Produto": [
+            "arroz",
+            "feijao",
+            "frango"
+        ],
+        "Preco": [
+            5.50,
+            6.80,
+            12.00
+        ]
     })
 
-    df_init.to_csv(ARQ_PRECOS, index=False)
+    df_init.to_csv(
+        ARQ_PRECOS,
+        index=False
+    )
 
     return df_init
 
@@ -138,10 +153,33 @@ else:
 
         df_precos = pd.read_csv(ARQ_PRECOS)
 
-        if df_precos.empty:
+        # PADRONIZAR NOMES DAS COLUNAS
+        df_precos.columns = (
+            df_precos.columns
+            .str.strip()
+            .str.capitalize()
+        )
+
+        # VALIDAR COLUNAS
+        colunas_necessarias = [
+            "Estado",
+            "Produto",
+            "Preco"
+        ]
+
+        if not all(
+            col in df_precos.columns
+            for col in colunas_necessarias
+        ):
+
             df_precos = criar_base_padrao()
 
-    except:
+        # VALIDAR VAZIO
+        if df_precos.empty:
+
+            df_precos = criar_base_padrao()
+
+    except Exception:
 
         df_precos = criar_base_padrao()
 
@@ -150,7 +188,9 @@ else:
 # ---------------------------------
 st.sidebar.title("📌 Painel")
 
-estados = sorted(df_precos["Estado"].unique())
+estados = sorted(
+    df_precos["Estado"].unique()
+)
 
 estado = st.sidebar.selectbox(
     "📍 Estado",
@@ -158,23 +198,31 @@ estado = st.sidebar.selectbox(
 )
 
 # ---------------------------------
-# FILTRO
+# FILTRAR ESTADO
 # ---------------------------------
-df_estado = df_precos[df_precos["Estado"] == estado]
+df_estado = df_precos[
+    df_precos["Estado"] == estado
+]
 
-produtos_lista = sorted(df_estado["Produto"].unique())
+produtos_lista = sorted(
+    df_estado["Produto"].unique()
+)
 
 # ---------------------------------
-# CADASTRAR INGREDIENTE
+# CADASTRO INGREDIENTE
 # ---------------------------------
 st.subheader("➕ Cadastro de Ingredientes")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    novo_produto = st.text_input("Produto")
+
+    novo_produto = st.text_input(
+        "Produto"
+    )
 
 with col2:
+
     novo_preco = st.number_input(
         "Preço",
         min_value=0.0,
@@ -182,7 +230,8 @@ with col2:
     )
 
 with col3:
-    unidade = st.selectbox(
+
+    nova_unidade = st.selectbox(
         "Unidade",
         ["kg", "g", "lt", "ml", "un"]
     )
@@ -191,23 +240,33 @@ if st.button("Salvar Ingrediente"):
 
     if novo_produto.strip():
 
-        produto_limpo = novo_produto.strip().lower()
+        produto_limpo = (
+            novo_produto
+            .strip()
+            .lower()
+        )
 
         existe = (
-            (df_precos["Estado"] == estado) &
+            (df_precos["Estado"] == estado)
+            &
             (df_precos["Produto"] == produto_limpo)
         )
 
         if existe.any():
 
-            df_precos.loc[existe, "Preco"] = novo_preco
+            df_precos.loc[
+                existe,
+                "Preco"
+            ] = novo_preco
 
         else:
 
             novo = pd.DataFrame({
+
                 "Estado": [estado],
                 "Produto": [produto_limpo],
                 "Preco": [novo_preco]
+
             })
 
             df_precos = pd.concat(
@@ -220,7 +279,9 @@ if st.button("Salvar Ingrediente"):
             index=False
         )
 
-        st.success("✅ Ingrediente salvo!")
+        st.success(
+            "✅ Ingrediente salvo!"
+        )
 
         st.rerun()
 
@@ -243,7 +304,9 @@ custos = []
 
 for i in range(qtd):
 
-    st.markdown(f"### Ingrediente {i+1}")
+    st.markdown(
+        f"### Ingrediente {i+1}"
+    )
 
     col1, col2, col3 = st.columns(3)
 
@@ -273,7 +336,9 @@ for i in range(qtd):
         )
 
     preco_base = float(
-        df_estado[df_estado["Produto"] == produto]["Preco"].values[0]
+        df_estado[
+            df_estado["Produto"] == produto
+        ]["Preco"].values[0]
     )
 
     custo = preco_base * quantidade
@@ -285,17 +350,19 @@ for i in range(qtd):
     )
 
     ingredientes_json.append({
+
         "produto": produto,
         "quantidade": quantidade,
         "unidade": unidade_item,
         "preco_base": preco_base,
         "custo": round(custo, 2)
+
     })
 
     custos.append(custo)
 
 # ---------------------------------
-# RESULTADOS
+# RESULTADO
 # ---------------------------------
 st.subheader("📊 Resultado")
 
@@ -340,20 +407,31 @@ if custo_total > 0:
     )
 
 if cmv > 60:
-    st.error("⚠️ CMV muito alto.")
+
+    st.error(
+        "⚠️ CMV muito alto."
+    )
 
 elif cmv > 40:
-    st.warning("⚠️ CMV moderado.")
+
+    st.warning(
+        "⚠️ CMV moderado."
+    )
 
 elif cmv > 0:
-    st.success("🔥 Excelente margem!")
+
+    st.success(
+        "🔥 Excelente margem!"
+    )
 
 # ---------------------------------
 # SALVAR PRATO
 # ---------------------------------
 st.subheader("💾 Salvar Prato")
 
-nome_prato = st.text_input("Nome do prato")
+nome_prato = st.text_input(
+    "Nome do prato"
+)
 
 if st.button("Salvar Prato"):
 
@@ -363,16 +441,26 @@ if st.button("Salvar Prato"):
 
             "Prato": [nome_prato],
             "Estado": [estado],
-            "Ingredientes": [json.dumps(ingredientes_json)],
-            "Custo": [round(custo_total, 2)],
-            "Venda": [round(preco_venda, 2)],
-            "CMV": [round(cmv, 2)]
+            "Ingredientes": [
+                json.dumps(ingredientes_json)
+            ],
+            "Custo": [
+                round(custo_total, 2)
+            ],
+            "Venda": [
+                round(preco_venda, 2)
+            ],
+            "CMV": [
+                round(cmv, 2)
+            ]
 
         })
 
         if os.path.exists(ARQ_PRATOS):
 
-            df_existente = pd.read_csv(ARQ_PRATOS)
+            df_existente = pd.read_csv(
+                ARQ_PRATOS
+            )
 
             df_existente = df_existente[
                 df_existente["Prato"] != nome_prato
@@ -395,7 +483,9 @@ if st.button("Salvar Prato"):
                 index=False
             )
 
-        st.success("✅ Prato salvo com sucesso!")
+        st.success(
+            "✅ Prato salvo com sucesso!"
+        )
 
 # ---------------------------------
 # HISTÓRICO
@@ -406,7 +496,9 @@ if os.path.exists(ARQ_PRATOS):
 
     try:
 
-        df_hist = pd.read_csv(ARQ_PRATOS)
+        df_hist = pd.read_csv(
+            ARQ_PRATOS
+        )
 
         if not df_hist.empty:
 
@@ -430,26 +522,35 @@ if os.path.exists(ARQ_PRATOS):
             # FORMATAR
             df_exibir = df_hist.copy()
 
-            df_exibir["Custo"] = df_exibir["Custo"].apply(
-                lambda x: f"R$ {x:.2f}"
+            df_exibir["Custo"] = (
+                df_exibir["Custo"]
+                .apply(lambda x: f"R$ {x:.2f}")
             )
 
-            df_exibir["Venda"] = df_exibir["Venda"].apply(
-                lambda x: f"R$ {x:.2f}"
+            df_exibir["Venda"] = (
+                df_exibir["Venda"]
+                .apply(lambda x: f"R$ {x:.2f}")
             )
 
-            df_exibir["CMV"] = df_exibir["CMV"].apply(
-                lambda x: f"{x:.2f}%"
+            df_exibir["CMV"] = (
+                df_exibir["CMV"]
+                .apply(lambda x: f"{x:.2f}%")
             )
 
             st.dataframe(
                 df_exibir[
-                    ["Prato", "Estado", "Custo", "Venda", "CMV"]
+                    [
+                        "Prato",
+                        "Estado",
+                        "Custo",
+                        "Venda",
+                        "CMV"
+                    ]
                 ],
                 use_container_width=True
             )
 
-            # MÉTRICAS
+            # ESTATÍSTICAS
             st.subheader("📌 Estatísticas")
 
             col1, col2, col3 = st.columns(3)
@@ -471,12 +572,18 @@ if os.path.exists(ARQ_PRATOS):
 
         else:
 
-            st.info("Nenhum prato salvo.")
+            st.info(
+                "Nenhum prato salvo."
+            )
 
-    except:
+    except Exception:
 
-        st.warning("Erro ao carregar histórico.")
+        st.warning(
+            "Erro ao carregar histórico."
+        )
 
 else:
 
-    st.info("Nenhum prato salvo ainda.")
+    st.info(
+        "Nenhum prato salvo ainda."
+    )
